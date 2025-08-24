@@ -28,6 +28,7 @@ impl Writer {
     pub fn write_byte(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
+            b'\r' => self.column_pos = 0,
             byte => {
                 if self.column_pos >= BUFFER_WIDTH {
                     self.new_line();
@@ -48,7 +49,7 @@ impl Writer {
     pub fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
             match byte {
-                0x20..=0x7e | b'\n' => self.write_byte(byte),
+                0x20..=0x7e | b'\n' | b'\r' => self.write_byte(byte),
                 // not in range
                 _ => self.write_byte(0xfe),
             }
@@ -91,7 +92,7 @@ pub fn init_writer() {
     unsafe {
         WRITER = Some(Writer {
             column_pos: 0,
-            color: ColorCode::new(Color::White as u8, Color::Red as u8),
+            color: ColorCode::new(Color::Red as u8, Color::Black as u8),
             buffer: &mut *(0xb8000 as *mut Buffer),
         });
     }
