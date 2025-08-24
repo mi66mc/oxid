@@ -91,7 +91,7 @@ pub fn init_writer() {
     unsafe {
         WRITER = Some(Writer {
             column_pos: 0,
-            color: ColorCode::new(Color::White as u8, Color::LightBlue as u8),
+            color: ColorCode::new(Color::White as u8, Color::Red as u8),
             buffer: &mut *(0xb8000 as *mut Buffer),
         });
     }
@@ -107,4 +107,10 @@ pub fn _print(args: fmt::Arguments) {
 macro_rules! print {
     () => {};
     ($($arg:tt)*) => ($crate::vga_buffer::buffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
