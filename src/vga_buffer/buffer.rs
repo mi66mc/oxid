@@ -25,7 +25,7 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn write_byte(&mut self, byte: u8) {
+    pub fn write_byte(&mut self, byte: u8, row_override: Option<usize>) {
         match byte {
             b'\n' => self.new_line(),
             b'\r' => self.column_pos = 0,
@@ -34,7 +34,8 @@ impl Writer {
                     self.new_line();
                 }
 
-                let ptr = &mut self.buffer.chars[BUFFER_HEIGHT -1][self.column_pos] as *mut ScreenChar;
+                let row = row_override.unwrap_or(BUFFER_HEIGHT - 1);
+                let ptr = &mut self.buffer.chars[row][self.column_pos] as *mut ScreenChar;
                 unsafe {
                     write_volatile(ptr, ScreenChar {
                         char: byte,
@@ -46,14 +47,12 @@ impl Writer {
         }
     }
 
-    pub fn write_string(&mut self, s: &str) {
+    pub fn write_string(&mut self, s: &str, row_override: Option<usize>) {
         for byte in s.bytes() {
             match byte {
-                0x20..=0x7e | b'\n' | b'\r' => self.write_byte(byte),
-                // not in range
-                _ => self.write_byte(0xfe),
+                0x20..=0x7e | b'\n' | b'\r' => self.write_byte(byte, row_override),
+                _ => self.write_byte(0xfe, row_override),
             }
-
         }
     }
 
@@ -79,12 +78,6 @@ impl Writer {
     }
 }
 
-impl fmt::Write for Writer {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.write_string(s);
-        Ok(())
-    }
-}
 
 pub static mut WRITER: Option<Writer> = None;
 
@@ -99,19 +92,47 @@ pub fn init_writer() {
 }
 
 #[doc(hidden)]
-pub fn _print(args: fmt::Arguments) {
+pub fn _print(args: fmt::Arguments, top: bool) {
     use core::fmt::Write;
-    unsafe { let _ = WRITER.as_mut().unwrap().write_fmt(args); }
+    unsafe {
+        if let Some(writer) = WRITER.as_mut() {
+            struct TopWriter<'a> {
+                inner: &'a mut Writer,
+                row_override: Option<usize>,
+            }
+
+            impl<'a> fmt::Write for TopWriter<'a> {
+                fn write_str(&mut self, s: &str) -> fmt::Result {
+                    self.inner.write_string(s, self.row_override);
+                    Ok(())
+                }
+            }
+
+            let mut tw = TopWriter {
+                inner: writer,
+                row_override: if top { Some(5) } else { None },
+            };
+            let _ = tw.write_fmt(args);
+        }
+    }
 }
+
+
 
 #[macro_export]
 macro_rules! print {
     () => {};
-    ($($arg:tt)*) => ($crate::vga_buffer::buffer::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::vga_buffer::buffer::_print(format_args!($($arg)*), false));
 }
 
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! print_top {
+    () => {};
+    ($($arg:tt)*) => ($crate::vga_buffer::buffer::_print(format_args!($($arg)*), true));
 }

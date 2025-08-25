@@ -1,4 +1,4 @@
-use crate::{print, println};
+use crate::print_top;
 use crate::string::string::String;
 
 
@@ -15,5 +15,5 @@ pub fn progress_bar(all: usize, progress: usize, width: usize) {
         bar.push_str(" ");
     }
 
-    print!("[{}] {}%\r", bar.as_str(), progress * 100 / all);
+    print_top!("[{}] {}%\r", bar.as_str(), progress * 100 / all);
 }

@@ -7,13 +7,12 @@
 
 use core::panic::PanicInfo;
 use vga_buffer::buffer::init_writer;
-
-use crate::progress_bar::progress_bar::progress_bar;
-use crate::string::string::String;
+use crate::tests::testable::Testable;
 
 mod progress_bar;
 mod vga_buffer;
 mod string;
+mod tests;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
@@ -34,37 +33,27 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
-macro_rules! named_test {
-    ($func:ident) => {
-        stringify!($func)
-    };
+impl<T> Testable for T where T: Fn(), {
+    fn run(&self) -> () {
+        println!("[ {} ] ...", core::any::type_name::<T>());
+        self();
+        println!("[ {} ] OK!", core::any::type_name::<T>());
+    }
 }
 
 #[cfg(test)]
-fn test_runner(tests: &[&dyn Fn()]) {
+fn test_runner(tests: &[&dyn Testable]) {
     println!("RUNNING [{}] TESTS", tests.len());
     for (i, test) in tests.iter().enumerate() {
-        progress_bar(tests.len(), i + 1, 10);
-        test();
+        progress_bar::progress_bar::progress_bar(tests.len(), i + 1, 10);
+        test.run();
     }
-    println!("\n[{}] OK TESTS", tests.len());
+    println!("[{}] OK TESTS", tests.len());
 }
 
 
 #[cfg(test)]
 #[test_case]
-fn trivial_assertion() {
-    assert_eq!(1, 1);
-}
-
-#[cfg(test)]
-#[test_case]
-fn trivial_assertion() {
-    assert_eq!(1, 1);
-}
-
-#[cfg(test)]
-#[test_case]
-fn trivial_assertion() {
-    assert_eq!(1, 1);
+fn init_writer_test() {
+    init_writer();
 }
