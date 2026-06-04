@@ -6,6 +6,8 @@ use std::{
     io::{self, Read},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    thread,
+    time::Duration,
 };
 
 const LIMINE_VERSION: &str = "v12.2.0";
@@ -17,18 +19,35 @@ const PARTITION_LBA: u32 = 2048;
 const LIMINE_DIR: &str = ".tools/limine/v12.2.0";
 const IMAGE_PATH: &str = "target/oxid.img";
 const KERNEL_PATH: &str = "target/x86_64-unknown-none/debug/oxid";
+const SERIAL_LOG_PATH: &str = "target/serial.log";
+const SMOKE_BOOT_MARKER: &str = "Oxid kernel initialized";
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args().skip(1);
     let Some(command) = args.next() else {
-        return Err("usage: cargo run --manifest-path tools/xtask/Cargo.toml -- <image|run-qemu>".into());
+        return Err(
+            "usage: cargo run --manifest-path tools/xtask/Cargo.toml -- <image|run-qemu>".into(),
+        );
     };
 
     match command.as_str() {
+        "check" => check(),
         "image" => image(),
         "run-qemu" => run_qemu(),
+        "smoke-qemu" => smoke_qemu(),
         _ => Err(format!("unknown xtask command: {command}").into()),
     }
+}
+
+fn check() -> Result<(), Box<dyn Error>> {
+    run("cargo", ["test"])?;
+    run(
+        "cargo",
+        ["test", "--manifest-path", "tools/xtask/Cargo.toml"],
+    )?;
+    run("cargo", ["kbuild"])?;
+    run("cargo", ["ktest-build"])?;
+    image()
 }
 
 fn image() -> Result<(), Box<dyn Error>> {
@@ -82,6 +101,55 @@ fn run_qemu() -> Result<(), Box<dyn Error>> {
     )
 }
 
+fn smoke_qemu() -> Result<(), Box<dyn Error>> {
+    image()?;
+
+    let serial_log = Path::new(SERIAL_LOG_PATH);
+    if serial_log.exists() {
+        fs::remove_file(serial_log)?;
+    }
+
+    let mut child = Command::new("qemu-system-x86_64")
+        .args([
+            "-m",
+            "256M",
+            "-drive",
+            "format=raw,file=target/oxid.img,if=ide,index=0,media=disk",
+            "-boot",
+            "c",
+            "-serial",
+            "file:target/serial.log",
+            "-display",
+            "none",
+            "-monitor",
+            "none",
+            "-no-reboot",
+            "-no-shutdown",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+
+    thread::sleep(Duration::from_secs(5));
+
+    if child.try_wait()?.is_none() {
+        child.kill()?;
+    }
+    let _ = child.wait();
+
+    let serial = fs::read_to_string(serial_log)?;
+    if !serial.contains(SMOKE_BOOT_MARKER) {
+        return Err(format!(
+            "QEMU smoke test did not find `{SMOKE_BOOT_MARKER}` in {SERIAL_LOG_PATH}\n{serial}"
+        )
+        .into());
+    }
+
+    println!("{serial}");
+    Ok(())
+}
+
 fn ensure_limine() -> Result<(), Box<dyn Error>> {
     let limine_dir = Path::new(LIMINE_DIR);
     if limine_dir.join("limine-bios.sys").exists() && limine_executable(limine_dir).exists() {
@@ -98,7 +166,10 @@ fn ensure_limine() -> Result<(), Box<dyn Error>> {
     download_file(LIMINE_URL, archive)?;
     extract_limine_files(archive, limine_dir)?;
 
-    println!("Limine {LIMINE_VERSION} is ready at {}", limine_dir.display());
+    println!(
+        "Limine {LIMINE_VERSION} is ready at {}",
+        limine_dir.display()
+    );
     Ok(())
 }
 
@@ -163,13 +234,18 @@ fn extract_limine_files_with_powershell(
     Ok(())
 }
 
-fn extract_limine_files_with_unzip(archive: &Path, limine_dir: &Path) -> Result<(), Box<dyn Error>> {
+fn extract_limine_files_with_unzip(
+    archive: &Path,
+    limine_dir: &Path,
+) -> Result<(), Box<dyn Error>> {
     let list = Command::new("unzip").arg("-Z1").arg(archive).output();
     let output = match list {
         Ok(output) if output.status.success() => output,
         Ok(_) => return Err("unzip failed to list Limine archive".into()),
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Err("unzip is required to extract Limine automatically on this platform".into());
+            return Err(
+                "unzip is required to extract Limine automatically on this platform".into(),
+            );
         }
         Err(error) => return Err(error.into()),
     };
@@ -477,7 +553,11 @@ impl Fat16Image {
         write_dir_entries(&mut self.bytes[start..start + capacity], entries)
     }
 
-    fn write_cluster_dir(&mut self, cluster: u16, entries: &[DirEntry]) -> Result<(), Box<dyn Error>> {
+    fn write_cluster_dir(
+        &mut self,
+        cluster: u16,
+        entries: &[DirEntry],
+    ) -> Result<(), Box<dyn Error>> {
         let start = self.cluster_offset(cluster);
         let capacity = self.sectors_per_cluster * SECTOR_SIZE;
         write_dir_entries(&mut self.bytes[start..start + capacity], entries)
@@ -485,8 +565,8 @@ impl Fat16Image {
 
     fn set_fat_entry(&mut self, cluster: u16, value: u16) {
         for fat in 0..2 {
-            let offset = (self.fat_start + fat * self.sectors_per_fat) * SECTOR_SIZE
-                + cluster as usize * 2;
+            let offset =
+                (self.fat_start + fat * self.sectors_per_fat) * SECTOR_SIZE + cluster as usize * 2;
             self.write_u16(offset, value);
         }
     }
@@ -608,7 +688,12 @@ fn short_name(name: &str) -> ([u8; 11], bool) {
     short[..6].copy_from_slice(&compact[..6]);
     short[6] = b'~';
     short[7] = b'1';
-    for (index, byte) in ext.bytes().filter(u8::is_ascii_alphanumeric).take(3).enumerate() {
+    for (index, byte) in ext
+        .bytes()
+        .filter(u8::is_ascii_alphanumeric)
+        .take(3)
+        .enumerate()
+    {
         short[8 + index] = byte.to_ascii_uppercase();
     }
     (short, true)
@@ -643,9 +728,7 @@ fn long_name_entries(name: &str, short_name: &[u8; 11]) -> Vec<DirEntry> {
 }
 
 fn write_lfn_chars(entry: &mut [u8; 32], chars: &[u16]) {
-    let slots = [
-        1usize, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30,
-    ];
+    let slots = [1usize, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30];
     for (slot, value) in slots.iter().zip(chars.iter().copied()) {
         entry[*slot..*slot + 2].copy_from_slice(&value.to_le_bytes());
     }

@@ -3,6 +3,8 @@ kbuild = "build -Zbuild-std=core,compiler_builtins -Zbuild-std-features=compiler
 ktest-build = "test --no-run -Zbuild-std=core,compiler_builtins -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec -Zpanic-abort-tests --target x86_64-unknown-none.json"
 image = "run --manifest-path tools/xtask/Cargo.toml -- image"
 run-qemu = "run --manifest-path tools/xtask/Cargo.toml -- run-qemu"
+check-all = "run --manifest-path tools/xtask/Cargo.toml -- check"
+smoke-qemu = "run --manifest-path tools/xtask/Cargo.toml -- smoke-qemu"
 
 [target.'cfg(target_os = "none")']
 rustflags = ["-C", "link-arg=-Tkernel/linker/x86_64-limine.ld"]
