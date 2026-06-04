@@ -34,6 +34,8 @@ pub extern "C" fn _start() -> ! {
         let _ = early_serial.write_str("Oxid entry\n");
     }
 
+    arch::x86_64::init();
+
     let boot_info = boot::limine::load_boot_info();
 
     #[cfg(test)]
