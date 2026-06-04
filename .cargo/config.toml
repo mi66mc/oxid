@@ -5,6 +5,7 @@ image = "run --manifest-path tools/xtask/Cargo.toml -- image"
 run-qemu = "run --manifest-path tools/xtask/Cargo.toml -- run-qemu"
 check-all = "run --manifest-path tools/xtask/Cargo.toml -- check"
 smoke-qemu = "run --manifest-path tools/xtask/Cargo.toml -- smoke-qemu"
+smoke-exception = "run --manifest-path tools/xtask/Cargo.toml -- smoke-exception"
 
 [target.'cfg(target_os = "none")']
 rustflags = ["-C", "link-arg=-Tkernel/linker/x86_64-limine.ld"]

@@ -21,6 +21,7 @@ const IMAGE_PATH: &str = "target/oxid.img";
 const KERNEL_PATH: &str = "target/x86_64-unknown-none/debug/oxid";
 const SERIAL_LOG_PATH: &str = "target/serial.log";
 const SMOKE_BOOT_MARKER: &str = "Oxid kernel initialized";
+const SMOKE_EXCEPTION_MARKER: &str = "Exception: Breakpoint";
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args().skip(1);
@@ -34,6 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "check" => check(),
         "image" => image(),
         "run-qemu" => run_qemu(),
+        "smoke-exception" => smoke_exception(),
         "smoke-qemu" => smoke_qemu(),
         _ => Err(format!("unknown xtask command: {command}").into()),
     }
@@ -51,8 +53,12 @@ fn check() -> Result<(), Box<dyn Error>> {
 }
 
 fn image() -> Result<(), Box<dyn Error>> {
+    image_with_kernel_features(&[])
+}
+
+fn image_with_kernel_features(features: &[&str]) -> Result<(), Box<dyn Error>> {
     ensure_limine()?;
-    run("cargo", ["kbuild"])?;
+    build_kernel(features)?;
 
     let limine_dir = Path::new(LIMINE_DIR);
     let limine_bios_sys = limine_dir.join("limine-bios.sys");
@@ -80,6 +86,24 @@ fn image() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn build_kernel(features: &[&str]) -> Result<(), Box<dyn Error>> {
+    let mut command = Command::new("cargo");
+    command.args([
+        "build",
+        "-Zbuild-std=core,compiler_builtins",
+        "-Zbuild-std-features=compiler-builtins-mem",
+        "-Zjson-target-spec",
+        "--target",
+        "x86_64-unknown-none.json",
+    ]);
+
+    if !features.is_empty() {
+        command.arg("--features").arg(features.join(","));
+    }
+
+    run_command(&mut command)
+}
+
 fn run_qemu() -> Result<(), Box<dyn Error>> {
     image()?;
     run(
@@ -102,8 +126,18 @@ fn run_qemu() -> Result<(), Box<dyn Error>> {
 }
 
 fn smoke_qemu() -> Result<(), Box<dyn Error>> {
-    image()?;
+    image_with_kernel_features(&[])?;
 
+    run_qemu_smoke(SMOKE_BOOT_MARKER)
+}
+
+fn smoke_exception() -> Result<(), Box<dyn Error>> {
+    image_with_kernel_features(&["exception-smoke"])?;
+
+    run_qemu_smoke(SMOKE_EXCEPTION_MARKER)
+}
+
+fn run_qemu_smoke(marker: &str) -> Result<(), Box<dyn Error>> {
     let serial_log = Path::new(SERIAL_LOG_PATH);
     if serial_log.exists() {
         fs::remove_file(serial_log)?;
@@ -139,9 +173,9 @@ fn smoke_qemu() -> Result<(), Box<dyn Error>> {
     let _ = child.wait();
 
     let serial = fs::read_to_string(serial_log)?;
-    if !serial.contains(SMOKE_BOOT_MARKER) {
+    if !serial.contains(marker) {
         return Err(format!(
-            "QEMU smoke test did not find `{SMOKE_BOOT_MARKER}` in {SERIAL_LOG_PATH}\n{serial}"
+            "QEMU smoke test did not find `{marker}` in {SERIAL_LOG_PATH}\n{serial}"
         )
         .into());
     }
@@ -342,6 +376,17 @@ where
         .stdin(Stdio::null())
         .status()?;
 
+    check_status(program, status)
+}
+
+fn run_command(command: &mut Command) -> Result<(), Box<dyn Error>> {
+    let program = command.get_program().to_owned();
+    let status = command.stdin(Stdio::null()).status()?;
+
+    check_status(Path::new(&program), status)
+}
+
+fn check_status(program: &Path, status: std::process::ExitStatus) -> Result<(), Box<dyn Error>> {
     if !status.success() {
         return Err(format!("command failed: {}", program.display()).into());
     }

@@ -81,6 +81,12 @@ cargo smoke-qemu
 
 Boots QEMU headlessly, captures serial output, and fails if the kernel startup marker is missing.
 
+```sh
+cargo smoke-exception
+```
+
+Boots QEMU with a controlled breakpoint exception and fails if the exception handler output is missing.
+
 ## Architecture
 
 - `src/boot`: Limine protocol requests and the kernel-facing `BootInfo`.

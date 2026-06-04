@@ -106,7 +106,7 @@ pub fn init() {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(feature = "exception-smoke")]
 pub fn trigger_breakpoint() {
     unsafe {
         asm!("int3", options(nomem, nostack));
@@ -143,7 +143,12 @@ extern "x86-interrupt" fn general_protection_fault_handler(
     stack_frame: InterruptStackFrame,
     error_code: u64,
 ) {
-    report_exception("General Protection Fault", 13, Some(error_code), &stack_frame);
+    report_exception(
+        "General Protection Fault",
+        13,
+        Some(error_code),
+        &stack_frame,
+    );
     halt_loop();
 }
 
@@ -175,7 +180,7 @@ fn report_exception(
 
 #[cfg(all(test, not(target_os = "none")))]
 mod tests {
-    use super::{HandlerAddress, IdtEntry, INTERRUPT_GATE, KERNEL_CODE_SELECTOR};
+    use super::{HandlerAddress, INTERRUPT_GATE, IdtEntry, KERNEL_CODE_SELECTOR};
 
     extern "x86-interrupt" fn test_handler(_stack_frame: super::InterruptStackFrame) {}
 

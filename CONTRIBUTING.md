@@ -39,17 +39,21 @@ Run the full local validation before committing:
 ```sh
 cargo check-all
 cargo smoke-qemu
+cargo smoke-exception
 ```
 
 `cargo check-all` runs host tests, xtask tests, bare-metal kernel build, bare-metal test build, and image generation.
 
 `cargo smoke-qemu` boots the generated image headlessly and verifies that serial output contains `Oxid kernel initialized`.
 
+`cargo smoke-exception` boots a controlled breakpoint build and verifies that the CPU exception path reports `Exception: Breakpoint`.
+
 ## Commit Policy
 
 - Prefer small logical commits.
 - Each commit should leave `cargo check-all` passing.
 - Run `cargo smoke-qemu` for changes touching boot, linker, image generation, console, serial, or kernel entry.
+- Run `cargo smoke-exception` for changes touching GDT, IDT, exception handlers, or low-level x86_64 CPU setup.
 - Use concise conventional-style messages such as `build: add smoke qemu task` or `kernel: add exception handlers`.
 
 ## Code Policy

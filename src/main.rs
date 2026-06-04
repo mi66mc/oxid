@@ -37,6 +37,9 @@ pub extern "C" fn _start() -> ! {
 
     arch::x86_64::init();
 
+    #[cfg(feature = "exception-smoke")]
+    arch::x86_64::idt::trigger_breakpoint();
+
     let boot_info = boot::limine::load_boot_info();
 
     #[cfg(test)]

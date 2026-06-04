@@ -8,6 +8,9 @@ members = ["tools/xtask"]
 
 [dependencies]
 
+[features]
+exception-smoke = []
+
 [profile.dev]
 panic = "abort"
 
