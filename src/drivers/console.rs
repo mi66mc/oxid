@@ -21,7 +21,10 @@ impl Console {
             framebuffer.draw_banner();
         }
 
-        Self { serial, framebuffer }
+        Self {
+            serial,
+            framebuffer,
+        }
     }
 }
 

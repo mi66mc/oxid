@@ -112,7 +112,13 @@ mod tests {
     #[test]
     fn converts_limine_region_kinds() {
         assert_eq!(MemoryRegionKind::from_limine(0), MemoryRegionKind::Usable);
-        assert_eq!(MemoryRegionKind::from_limine(7), MemoryRegionKind::Framebuffer);
-        assert_eq!(MemoryRegionKind::from_limine(99), MemoryRegionKind::Unknown(99));
+        assert_eq!(
+            MemoryRegionKind::from_limine(7),
+            MemoryRegionKind::Framebuffer
+        );
+        assert_eq!(
+            MemoryRegionKind::from_limine(99),
+            MemoryRegionKind::Unknown(99)
+        );
     }
 }

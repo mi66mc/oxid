@@ -192,7 +192,9 @@ unsafe fn bootloader_version() -> Option<&'static str> {
     unsafe { bootloader_string(|response| response.version) }
 }
 
-unsafe fn bootloader_string(field: fn(&BootloaderInfoResponse) -> *const u8) -> Option<&'static str> {
+unsafe fn bootloader_string(
+    field: fn(&BootloaderInfoResponse) -> *const u8,
+) -> Option<&'static str> {
     let response = unsafe { BOOTLOADER_INFO_REQUEST.response.as_ref()? };
     let ptr = field(response);
     if ptr.is_null() {

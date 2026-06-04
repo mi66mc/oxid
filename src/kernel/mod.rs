@@ -26,7 +26,10 @@ pub fn init(boot_info: &BootInfo) -> ! {
     }
 
     kprintln!("Memory regions: {}", boot_info.memory_map.entries().len());
-    kprintln!("Usable memory: {} KiB", boot_info.memory_map.total_usable_bytes() / 1024);
+    kprintln!(
+        "Usable memory: {} KiB",
+        boot_info.memory_map.total_usable_bytes() / 1024
+    );
     kprintln!("Kernel halted.");
 
     x86_64::halt_loop()
