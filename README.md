@@ -69,6 +69,18 @@ cargo run-qemu
 
 Builds the image and boots it with QEMU.
 
+```sh
+cargo check-all
+```
+
+Runs the full local validation suite used by contributors.
+
+```sh
+cargo smoke-qemu
+```
+
+Boots QEMU headlessly, captures serial output, and fails if the kernel startup marker is missing.
+
 ## Architecture
 
 - `src/boot`: Limine protocol requests and the kernel-facing `BootInfo`.
@@ -78,6 +90,8 @@ Builds the image and boots it with QEMU.
 - `src/memory`: boot memory map model.
 - `src/text`: fixed-capacity text utilities for `no_std` code.
 - `tools/xtask`: host-side build/image/QEMU automation with no external crates.
+
+See `CONTRIBUTING.md` for the full contributor workflow.
 
 ## Policy
 
