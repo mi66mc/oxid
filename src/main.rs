@@ -1,5 +1,6 @@
 #![cfg_attr(target_os = "none", no_std)]
 #![cfg_attr(target_os = "none", no_main)]
+#![cfg_attr(target_os = "none", feature(abi_x86_interrupt))]
 #![cfg_attr(target_os = "none", feature(custom_test_frameworks))]
 #![cfg_attr(target_os = "none", test_runner(crate::kernel_test_runner))]
 #![cfg_attr(target_os = "none", reexport_test_harness_main = "kernel_test_main")]

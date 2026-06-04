@@ -1,9 +1,11 @@
 pub mod gdt;
+pub mod idt;
 pub mod port;
 pub mod serial;
 
 pub fn init() {
     gdt::init();
+    idt::init();
 }
 
 #[cfg(target_arch = "x86_64")]

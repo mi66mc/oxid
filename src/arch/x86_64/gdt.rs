@@ -61,7 +61,7 @@ unsafe fn reload_segments() {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_os = "none")))]
 mod tests {
     use super::descriptor;
 
