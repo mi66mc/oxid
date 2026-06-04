@@ -1,59 +1,54 @@
-#![no_std]
-#![no_main]
-#![allow(static_mut_refs)]
-#![feature(custom_test_frameworks)]
-#![test_runner(crate::test_runner)]
-#![reexport_test_harness_main = "test_main"]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
+#![cfg_attr(target_os = "none", feature(custom_test_frameworks))]
+#![cfg_attr(target_os = "none", test_runner(crate::kernel_test_runner))]
+#![cfg_attr(target_os = "none", reexport_test_harness_main = "kernel_test_main")]
 
+#[cfg(target_os = "none")]
 use core::panic::PanicInfo;
-use vga_buffer::buffer::init_writer;
-use crate::tests::testable::Testable;
 
-mod progress_bar;
-mod vga_buffer;
-mod string;
-mod tests;
+#[cfg(target_os = "none")]
+mod arch;
+#[cfg(target_os = "none")]
+mod boot;
+#[cfg(target_os = "none")]
+mod drivers;
+#[cfg(target_os = "none")]
+mod kernel;
+#[cfg(any(test, target_os = "none"))]
+mod memory;
+#[cfg(all(test, not(target_os = "none")))]
+mod text;
 
+#[cfg(not(target_os = "none"))]
+fn main() {}
+
+#[cfg(target_os = "none")]
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
-    init_writer();
-    println!("[ OXID KERNEL ]");
+    {
+        use core::fmt::Write;
+
+        let mut early_serial = arch::x86_64::serial::com1();
+        early_serial.init();
+        let _ = early_serial.write_str("Oxid entry\n");
+    }
+
+    let boot_info = boot::limine::load_boot_info();
 
     #[cfg(test)]
-    test_main();
+    kernel_test_main();
 
-    println!("> ");
-    loop {}
+    kernel::init(&boot_info)
 }
 
+#[cfg(target_os = "none")]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    println!("[ KERNEL PANIC ]");
-    println!("{}", info);
-    loop {}
+    kernel::panic(info)
 }
 
-impl<T> Testable for T where T: Fn(), {
-    fn run(&self) -> () {
-        println!("[ {} ] ...", core::any::type_name::<T>());
-        self();
-        println!("[ {} ] OK!", core::any::type_name::<T>());
-    }
-}
-
-#[cfg(test)]
-fn test_runner(tests: &[&dyn Testable]) {
-    println!("RUNNING [{}] TESTS", tests.len());
-    for (i, test) in tests.iter().enumerate() {
-        progress_bar::progress_bar::progress_bar(tests.len(), i + 1, 10);
-        test.run();
-    }
-    println!("[{}] OK TESTS", tests.len());
-}
-
-
-#[cfg(test)]
-#[test_case]
-fn init_writer_test() {
-    init_writer();
+#[cfg(all(test, target_os = "none"))]
+pub fn kernel_test_runner(_tests: &[&dyn Fn()]) {
+    arch::x86_64::halt_loop()
 }

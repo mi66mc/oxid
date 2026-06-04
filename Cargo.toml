@@ -3,8 +3,10 @@ name = "oxid"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["tools/xtask"]
+
 [dependencies]
-bootloader = "0.9"
 
 [profile.dev]
 panic = "abort"
